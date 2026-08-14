@@ -7,6 +7,9 @@ on:
 
 jobs:
 
+  # ============================================================
+  # CI - Install dependencies and run tests
+  # ============================================================
   test:
     name: Run Tests
     runs-on: self-hosted
@@ -19,9 +22,15 @@ jobs:
 
     steps:
 
+      # --------------------------------------------------------
+      # Checkout source code
+      # --------------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # --------------------------------------------------------
+      # Check Python installation and disk space
+      # --------------------------------------------------------
       - name: Check Python and disk
         shell: powershell
         run: |
@@ -37,13 +46,81 @@ jobs:
 
           Get-PSDrive C,D
 
+      # --------------------------------------------------------
+      # Install Python dependencies
+      # --------------------------------------------------------
       - name: Install dependencies
         working-directory: backend
         shell: powershell
         run: |
           python -m pip install --no-cache-dir --user -r requirements.txt
 
+      # --------------------------------------------------------
+      # Run automated tests
+      # --------------------------------------------------------
       - name: Run tests
         shell: powershell
         run: |
           python -m pytest tests/
+
+
+  # ============================================================
+  # CD - Build and Push Docker Image
+  # ============================================================
+  docker:
+    name: Build and Push Docker Image
+    runs-on: self-hosted
+
+    # Docker job runs only when the test job succeeds
+    needs: test
+
+    steps:
+
+      # --------------------------------------------------------
+      # Checkout source code
+      # --------------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # --------------------------------------------------------
+      # Verify Docker installation
+      # --------------------------------------------------------
+      - name: Check Docker
+        shell: powershell
+        run: |
+          docker --version
+
+      # --------------------------------------------------------
+      # Login to Docker Hub using GitHub Secrets
+      # --------------------------------------------------------
+      - name: Login to Docker Hub
+        shell: powershell
+        env:
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          $env:DOCKERHUB_TOKEN | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+      # --------------------------------------------------------
+      # Build Docker image
+      # --------------------------------------------------------
+      - name: Build Docker image
+        shell: powershell
+        run: |
+          docker build -t viswapriya/industrial-predictive-maintenance:latest .
+
+      # --------------------------------------------------------
+      # Push Docker image to Docker Hub
+      # --------------------------------------------------------
+      - name: Push Docker image
+        shell: powershell
+        run: |
+          docker push viswapriya/industrial-predictive-maintenance:latest
+
+      # --------------------------------------------------------
+      # Verify image exists locally
+      # --------------------------------------------------------
+      - name: Verify Docker image
+        shell: powershell
+        run: |
+          docker images viswapriya/industrial-predictive-maintenance
+
