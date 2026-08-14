@@ -91,11 +91,10 @@ jobs:
           docker --version
 
       # --------------------------------------------------------
-      # Check Docker Hub credential fingerprint
+      # Check Docker Hub credentials safely
       # --------------------------------------------------------
-      # This NEVER prints the actual Docker Hub token.
-      # It generates a SHA-256 fingerprint so that the local
-      # token and GitHub secret can be safely compared.
+      # This step NEVER prints the actual username or token.
+      # It only prints SHA-256 fingerprints for debugging.
       # --------------------------------------------------------
       - name: Check Docker Hub credential fingerprint
         shell: powershell
@@ -103,23 +102,61 @@ jobs:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
+
+          # ----------------------------------------------------
+          # Check username
+          # ----------------------------------------------------
           if ([string]::IsNullOrWhiteSpace($env:DOCKERHUB_USERNAME)) {
               Write-Error "DOCKERHUB_USERNAME secret is missing or empty."
               exit 1
           }
 
+          # ----------------------------------------------------
+          # Check token
+          # ----------------------------------------------------
           if ([string]::IsNullOrWhiteSpace($env:DOCKERHUB_TOKEN)) {
               Write-Error "DOCKERHUB_TOKEN secret is missing or empty."
               exit 1
           }
 
-          $bytes = [System.Text.Encoding]::UTF8.GetBytes($env:DOCKERHUB_TOKEN)
-          $hash = [System.Security.Cryptography.SHA256]::Create().ComputeHash($bytes)
-          $fingerprint = [BitConverter]::ToString($hash).Replace("-", "")
+          # ----------------------------------------------------
+          # Generate username SHA-256 fingerprint
+          # ----------------------------------------------------
+          $usernameBytes = [System.Text.Encoding]::UTF8.GetBytes(
+              $env:DOCKERHUB_USERNAME
+          )
 
+          $usernameHash = [System.Security.Cryptography.SHA256]::Create().ComputeHash(
+              $usernameBytes
+          )
+
+          $usernameFingerprint = [BitConverter]::ToString(
+              $usernameHash
+          ).Replace("-", "")
+
+          # ----------------------------------------------------
+          # Generate token SHA-256 fingerprint
+          # ----------------------------------------------------
+          $tokenBytes = [System.Text.Encoding]::UTF8.GetBytes(
+              $env:DOCKERHUB_TOKEN
+          )
+
+          $tokenHash = [System.Security.Cryptography.SHA256]::Create().ComputeHash(
+              $tokenBytes
+          )
+
+          $tokenFingerprint = [BitConverter]::ToString(
+              $tokenHash
+          ).Replace("-", "")
+
+          # ----------------------------------------------------
+          # Display safe information
+          # ----------------------------------------------------
           Write-Host "Docker Hub username length: $($env:DOCKERHUB_USERNAME.Length)"
+          Write-Host "Docker Hub username fingerprint: $usernameFingerprint"
+
           Write-Host "Docker Hub token length: $($env:DOCKERHUB_TOKEN.Length)"
-          Write-Host "Docker Hub token fingerprint: $fingerprint"
+          Write-Host "Docker Hub token fingerprint: $tokenFingerprint"
 
           Write-Host "Both Docker Hub secrets are present."
 
@@ -157,4 +194,3 @@ jobs:
         shell: powershell
         run: |
           docker images viswapriya/industrial-predictive-maintenance
-
