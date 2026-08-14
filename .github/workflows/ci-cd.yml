@@ -23,13 +23,13 @@ jobs:
     steps:
 
       # --------------------------------------------------------
-      # Checkout source code
+      # Checkout repository
       # --------------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
       # --------------------------------------------------------
-      # Check Python installation and disk space
+      # Check Python and disk
       # --------------------------------------------------------
       - name: Check Python and disk
         shell: powershell
@@ -47,7 +47,7 @@ jobs:
           Get-PSDrive C,D
 
       # --------------------------------------------------------
-      # Install Python dependencies
+      # Install dependencies
       # --------------------------------------------------------
       - name: Install dependencies
         working-directory: backend
@@ -56,7 +56,7 @@ jobs:
           python -m pip install --no-cache-dir --user -r requirements.txt
 
       # --------------------------------------------------------
-      # Run automated tests
+      # Run tests
       # --------------------------------------------------------
       - name: Run tests
         shell: powershell
@@ -71,19 +71,18 @@ jobs:
     name: Build and Push Docker Image
     runs-on: self-hosted
 
-    # Docker job starts only if the test job succeeds
     needs: test
 
     steps:
 
       # --------------------------------------------------------
-      # Checkout source code
+      # Checkout repository
       # --------------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
       # --------------------------------------------------------
-      # Verify Docker installation
+      # Check Docker
       # --------------------------------------------------------
       - name: Check Docker
         shell: powershell
@@ -91,85 +90,13 @@ jobs:
           docker --version
 
       # --------------------------------------------------------
-      # Check Docker Hub credentials safely
-      # --------------------------------------------------------
-      # This step NEVER prints the actual username or token.
-      # It only prints SHA-256 fingerprints for debugging.
-      # --------------------------------------------------------
-      - name: Check Docker Hub credential fingerprint
-        shell: powershell
-        env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-        run: |
-
-          # ----------------------------------------------------
-          # Check username
-          # ----------------------------------------------------
-          if ([string]::IsNullOrWhiteSpace($env:DOCKERHUB_USERNAME)) {
-              Write-Error "DOCKERHUB_USERNAME secret is missing or empty."
-              exit 1
-          }
-
-          # ----------------------------------------------------
-          # Check token
-          # ----------------------------------------------------
-          if ([string]::IsNullOrWhiteSpace($env:DOCKERHUB_TOKEN)) {
-              Write-Error "DOCKERHUB_TOKEN secret is missing or empty."
-              exit 1
-          }
-
-          # ----------------------------------------------------
-          # Generate username SHA-256 fingerprint
-          # ----------------------------------------------------
-          $usernameBytes = [System.Text.Encoding]::UTF8.GetBytes(
-              $env:DOCKERHUB_USERNAME
-          )
-
-          $usernameHash = [System.Security.Cryptography.SHA256]::Create().ComputeHash(
-              $usernameBytes
-          )
-
-          $usernameFingerprint = [BitConverter]::ToString(
-              $usernameHash
-          ).Replace("-", "")
-
-          # ----------------------------------------------------
-          # Generate token SHA-256 fingerprint
-          # ----------------------------------------------------
-          $tokenBytes = [System.Text.Encoding]::UTF8.GetBytes(
-              $env:DOCKERHUB_TOKEN
-          )
-
-          $tokenHash = [System.Security.Cryptography.SHA256]::Create().ComputeHash(
-              $tokenBytes
-          )
-
-          $tokenFingerprint = [BitConverter]::ToString(
-              $tokenHash
-          ).Replace("-", "")
-
-          # ----------------------------------------------------
-          # Display safe information
-          # ----------------------------------------------------
-          Write-Host "Docker Hub username length: $($env:DOCKERHUB_USERNAME.Length)"
-          Write-Host "Docker Hub username fingerprint: $usernameFingerprint"
-
-          Write-Host "Docker Hub token length: $($env:DOCKERHUB_TOKEN.Length)"
-          Write-Host "Docker Hub token fingerprint: $tokenFingerprint"
-
-          Write-Host "Both Docker Hub secrets are present."
-
-      # --------------------------------------------------------
       # Login to Docker Hub
       # --------------------------------------------------------
       - name: Login to Docker Hub
-        shell: powershell
-        env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-        run: |
-          $env:DOCKERHUB_TOKEN | docker login -u $env:DOCKERHUB_USERNAME --password-stdin
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       # --------------------------------------------------------
       # Build Docker image
@@ -180,7 +107,7 @@ jobs:
           docker build -t viswapriya/industrial-predictive-maintenance:latest .
 
       # --------------------------------------------------------
-      # Push Docker image to Docker Hub
+      # Push Docker image
       # --------------------------------------------------------
       - name: Push Docker image
         shell: powershell
@@ -188,7 +115,7 @@ jobs:
           docker push viswapriya/industrial-predictive-maintenance:latest
 
       # --------------------------------------------------------
-      # Verify image exists locally
+      # Verify Docker image
       # --------------------------------------------------------
       - name: Verify Docker image
         shell: powershell
