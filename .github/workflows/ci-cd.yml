@@ -71,7 +71,7 @@ jobs:
     name: Build and Push Docker Image
     runs-on: self-hosted
 
-    # Docker job runs only when the test job succeeds
+    # Docker job starts only if the test job succeeds
     needs: test
 
     steps:
@@ -91,14 +91,43 @@ jobs:
           docker --version
 
       # --------------------------------------------------------
-      # Login to Docker Hub using GitHub Secrets
+      # Check Docker Hub secrets
+      # --------------------------------------------------------
+      # This step NEVER prints the actual credentials.
+      # It only checks whether the secrets exist and reports
+      # their character lengths.
+      # --------------------------------------------------------
+      - name: Check Docker Hub secrets
+        shell: powershell
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          Write-Host "Docker Hub username length: $($env:DOCKERHUB_USERNAME.Length)"
+          Write-Host "Docker Hub token length: $($env:DOCKERHUB_TOKEN.Length)"
+
+          if ([string]::IsNullOrWhiteSpace($env:DOCKERHUB_USERNAME)) {
+              Write-Error "DOCKERHUB_USERNAME secret is missing or empty."
+              exit 1
+          }
+
+          if ([string]::IsNullOrWhiteSpace($env:DOCKERHUB_TOKEN)) {
+              Write-Error "DOCKERHUB_TOKEN secret is missing or empty."
+              exit 1
+          }
+
+          Write-Host "Both Docker Hub secrets are present."
+
+      # --------------------------------------------------------
+      # Login to Docker Hub
       # --------------------------------------------------------
       - name: Login to Docker Hub
         shell: powershell
         env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
-          $env:DOCKERHUB_TOKEN | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+          $env:DOCKERHUB_TOKEN | docker login -u $env:DOCKERHUB_USERNAME --password-stdin
 
       # --------------------------------------------------------
       # Build Docker image
