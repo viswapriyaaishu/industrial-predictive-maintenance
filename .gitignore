@@ -77,3 +77,8 @@ logs/
 # =========================
 *.tmp
 *.bak
+
+certs/
+*.pem
+*.pem.crt
+*.key
